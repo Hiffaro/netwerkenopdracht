@@ -137,29 +137,36 @@ int initialization() {
 
 //execution fase, this function contains all logic and functions
 void execution( int internetSocket ) {
-	//variables
-	setTimeOut( 2000, internetSocket );
-	
     //variables
 	int numberOfBytesReceived = 0;
 	int numberOfBytesSend = 0;
+	int running = 1;
 	char buffer[1000];
 	struct sockaddr_storage clientInternetAddress;
 	socklen_t clientInternetAddressLength = sizeof( clientInternetAddress );
 	
-    //receive data
-    numberOfBytesReceived = recvfrom( internetSocket, buffer, sizeof( buffer ) - 1, 0, ( struct sockaddr * )&clientInternetAddress, &clientInternetAddressLength );
-	if( numberOfBytesReceived == -1 ) {
-		perror( "recvfrom" );
-	} else {
-		buffer[numberOfBytesReceived] = '\0';
-		printf( "Received : %s\n", buffer );
-	}
+	//init
+	setTimeOut( 2000, internetSocket );
 
-    //send data
-	numberOfBytesSend = sendto( internetSocket, "Hello UDP world!", 16, 0, ( struct sockaddr * )&clientInternetAddress, clientInternetAddressLength );
-	if( numberOfBytesSend == -1 ) {
-		perror( "sendto" );
+	while( running != 0 ) {
+		//receive data
+		numberOfBytesReceived = recvfrom( internetSocket, buffer, sizeof( buffer ) - 1, 0, ( struct sockaddr * )&clientInternetAddress, &clientInternetAddressLength );
+		if( numberOfBytesReceived == -1 ) {
+			perror( "recvfrom" );
+		} else {
+			buffer[numberOfBytesReceived] = '\0';
+			printf( "Received : \"%s\"\n", buffer );
+			
+			if( strcmp( buffer, "close" ) == 0 ) {
+				running = 0;
+			}
+			
+			//send data
+			numberOfBytesSend = sendto( internetSocket, "Hello UDP world!", 16, 0, ( struct sockaddr * )&clientInternetAddress, clientInternetAddressLength );
+			if( numberOfBytesSend == -1 ) {
+				perror( "sendto" );
+			}
+		}
 	}
 }
 
