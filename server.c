@@ -65,6 +65,7 @@
 int initialization();
 void execution( int internetSocket );
 void cleanup( int internetSocket );
+int bufToInt( const char *buf );
 
 //main
 
@@ -164,8 +165,9 @@ void execution( int internetSocket ) {
 				continue;
 			}
 		}
-		guess = atoi( buffer );
+		guess = bufToInt( buffer );
 		if( guess < 0 || guess > 99 ) {
+			printf( "Invalid guess\n" );
 			continue;
 		} else {
 			memset( buffer, '\0', 1000 );
@@ -182,4 +184,20 @@ void execution( int internetSocket ) {
 //standart cleanup function to close the internet socket provided
 void cleanup( int internetSocket ) {
 	close( internetSocket );
+}
+
+//custom atoi for better performance
+int bufToInt( const char *buf ) {
+	uint32_t rslt = 0;
+
+	for( uint8_t i = 0; buf[i] != '\0'; i++ ) {
+		if( buf[i] >= '0' && buf[i] <= '9' ) {
+			rslt *= 10;
+			rslt += buf[i] - '0';
+		} else {
+			return -1;
+		}	
+	}
+
+	return rslt;
 }
