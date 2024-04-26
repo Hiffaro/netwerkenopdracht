@@ -8,7 +8,10 @@
 	#include <winsock2.h>
 	#include <ws2tcpip.h>
 	#include <unistd.h>
+<<<<<<< HEAD
 	#include <time.h>
+=======
+>>>>>>> 021dfbe507138b385b15b49085d156606115274d
 
     //windows needs wsaData functionality
 
@@ -43,7 +46,10 @@
 	#include <arpa/inet.h>
 	#include <errno.h>
 	#include <unistd.h>
+<<<<<<< HEAD
 	#include <time.h>
+=======
+>>>>>>> 021dfbe507138b385b15b49085d156606115274d
 
 	int OSInit( void ) {}
 	int OSCleanup( void ) {}
@@ -63,12 +69,23 @@
 //enums and structs
 
 //function prototypes
+<<<<<<< HEAD
 int initialization();
 int bufToInt( const char *buf );
 void execution( int internetSocket );
 void cleanup( int internetSocket );
 
 //main
+=======
+
+int initialization();
+void execution( int internetSocket );
+void cleanup( int internetSocket );
+int bufToInt( const char *buf );
+
+//main
+
+>>>>>>> 021dfbe507138b385b15b49085d156606115274d
 int main( int argc, char * argv[] ) {
 	//init
 
@@ -98,13 +115,19 @@ int initialization() {
 	internetAddressSetup.ai_socktype = SOCK_DGRAM;
 	internetAddressSetup.ai_flags = AI_PASSIVE;
 	int getaddrinfoReturn = getaddrinfo( NULL, "24042", &internetAddressSetup, &internetAddressResult );
+<<<<<<< HEAD
 
+=======
+>>>>>>> 021dfbe507138b385b15b49085d156606115274d
     //if something went wrong with the getaddrinfo function exit
 	if( getaddrinfoReturn != 0 ) {
 		fprintf( stderr, "getaddrinfo: %s\n", gai_strerror( getaddrinfoReturn ) );
 		exit( 1 );
 	}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 021dfbe507138b385b15b49085d156606115274d
 	int internetSocket = -1;
 	struct addrinfo *internetAddressResultIterator = internetAddressResult;
 
@@ -144,6 +167,7 @@ void execution( int internetSocket ) {
 	int numberOfBytesReceived = 0;
 	int numberOfBytesSend = 0;
 	int serverRunning = 1;
+<<<<<<< HEAD
 	int gameRunning = 0;
 	int guess = -1;
 	int rndNum = 0;
@@ -154,6 +178,12 @@ void execution( int internetSocket ) {
 	struct sockaddr_storage winningClientInternetAddress;
 	socklen_t clientInternetAddressLength = sizeof( clientInternetAddress );
 	socklen_t winningClientInternetAddressLength = sizeof( winningClientInternetAddress );
+=======
+	int guess = -1;
+	char buffer[1000];
+	struct sockaddr_storage clientInternetAddress;
+	socklen_t clientInternetAddressLength = sizeof( clientInternetAddress );
+>>>>>>> 021dfbe507138b385b15b49085d156606115274d
 	
 	//init
 	//setTimeOut( 2000, internetSocket );
@@ -162,9 +192,12 @@ void execution( int internetSocket ) {
 		//receive data
 		numberOfBytesReceived = recvfrom( internetSocket, buffer, sizeof( buffer ) - 1, 0, ( struct sockaddr * )&clientInternetAddress, &clientInternetAddressLength );
 		if( numberOfBytesReceived == -1 ) {
+<<<<<<< HEAD
 			//handle if timeout happens
 			setTimeOut( 0, internetSocket );
 			timeOutInMilis = 8000;
+=======
+>>>>>>> 021dfbe507138b385b15b49085d156606115274d
 			perror( "recvfrom" );
 			continue;
 		} else {
@@ -176,12 +209,16 @@ void execution( int internetSocket ) {
 				continue;
 			}
 		}
+<<<<<<< HEAD
 
 		//handle buffer and set guess
+=======
+>>>>>>> 021dfbe507138b385b15b49085d156606115274d
 		guess = bufToInt( buffer );
 		if( guess < 0 || guess > 99 ) {
 			printf( "Invalid guess\n" );
 			continue;
+<<<<<<< HEAD
 		} else if( gameRunning == 0 ) {
 			//if there is no game running start a new one
 			srand( time( NULL ) );
@@ -201,13 +238,22 @@ void execution( int internetSocket ) {
 			setTimeOut( timeOutInMilis, internetSocket );
 		}
 
+=======
+		} else {
+			memset( buffer, '\0', 1000 );
+			sprintf( buffer, "number received was %i", guess );
+		}
+>>>>>>> 021dfbe507138b385b15b49085d156606115274d
 		//send data
 		numberOfBytesSend = sendto( internetSocket, buffer, strlen( buffer ), 0, ( struct sockaddr * )&clientInternetAddress, clientInternetAddressLength );
 		if( numberOfBytesSend == -1 ) {
 			perror( "sendto" );
 		}
+<<<<<<< HEAD
 
 		printf( "cycle\n" );
+=======
+>>>>>>> 021dfbe507138b385b15b49085d156606115274d
 	}
 }
 
@@ -226,7 +272,11 @@ int bufToInt( const char *buf ) {
 			rslt += buf[i] - '0';
 		} else {
 			return -1;
+<<<<<<< HEAD
 		}
+=======
+		}	
+>>>>>>> 021dfbe507138b385b15b49085d156606115274d
 	}
 
 	return rslt;
