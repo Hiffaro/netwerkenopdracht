@@ -8,6 +8,7 @@
 	#include <winsock2.h>
 	#include <ws2tcpip.h>
 	#include <unistd.h>
+	#include <time.h>
 
     //windows needs wsaData functionality
 
@@ -42,6 +43,7 @@
 	#include <arpa/inet.h>
 	#include <errno.h>
 	#include <unistd.h>
+	#include <time.h>
 
 	int OSInit( void ) {}
 	int OSCleanup( void ) {}
@@ -61,14 +63,12 @@
 //enums and structs
 
 //function prototypes
-
 int initialization();
+int bufToInt( const char *buf );
 void execution( int internetSocket );
 void cleanup( int internetSocket );
-int bufToInt( const char *buf );
 
 //main
-
 int main( int argc, char * argv[] ) {
 	//init
 
@@ -98,11 +98,13 @@ int initialization() {
 	internetAddressSetup.ai_socktype = SOCK_DGRAM;
 	internetAddressSetup.ai_flags = AI_PASSIVE;
 	int getaddrinfoReturn = getaddrinfo( NULL, "24042", &internetAddressSetup, &internetAddressResult );
+
     //if something went wrong with the getaddrinfo function exit
 	if( getaddrinfoReturn != 0 ) {
 		fprintf( stderr, "getaddrinfo: %s\n", gai_strerror( getaddrinfoReturn ) );
 		exit( 1 );
 	}
+
 	int internetSocket = -1;
 	struct addrinfo *internetAddressResultIterator = internetAddressResult;
 
@@ -142,10 +144,16 @@ void execution( int internetSocket ) {
 	int numberOfBytesReceived = 0;
 	int numberOfBytesSend = 0;
 	int serverRunning = 1;
+	int gameRunning = 0;
 	int guess = -1;
+	int rndNum = 0;
+	int currentWinningGuess = 0;
+	int timeOutInMilis = 8000;
 	char buffer[1000];
 	struct sockaddr_storage clientInternetAddress;
+	struct sockaddr_storage winningClientInternetAddress;
 	socklen_t clientInternetAddressLength = sizeof( clientInternetAddress );
+	socklen_t winningClientInternetAddressLength = sizeof( winningClientInternetAddress );
 	
 	//init
 	//setTimeOut( 2000, internetSocket );
@@ -154,6 +162,9 @@ void execution( int internetSocket ) {
 		//receive data
 		numberOfBytesReceived = recvfrom( internetSocket, buffer, sizeof( buffer ) - 1, 0, ( struct sockaddr * )&clientInternetAddress, &clientInternetAddressLength );
 		if( numberOfBytesReceived == -1 ) {
+			//handle if timeout happens
+			setTimeOut( 0, internetSocket );
+			timeOutInMilis = 8000;
 			perror( "recvfrom" );
 			continue;
 		} else {
@@ -165,19 +176,38 @@ void execution( int internetSocket ) {
 				continue;
 			}
 		}
+
+		//handle buffer and set guess
 		guess = bufToInt( buffer );
 		if( guess < 0 || guess > 99 ) {
 			printf( "Invalid guess\n" );
 			continue;
-		} else {
-			memset( buffer, '\0', 1000 );
-			sprintf( buffer, "number received was %i", guess );
+		} else if( gameRunning == 0 ) {
+			//if there is no game running start a new one
+			srand( time( NULL ) );
+			rndNum = rand() % 100;
+			gameRunning = 1;
+			currentWinningGuess = guess;
+			memcpy( &winningClientInternetAddress, &clientInternetAddress, sizeof( clientInternetAddress ) );
+			memcpy( &winningClientInternetAddressLength, &clientInternetAddressLength, sizeof( clientInternetAddressLength ) );
+			setTimeOut( timeOutInMilis, internetSocket );
+		} else if( gameRunning == 1 ) {
+			//if there already is a game running handle the new guess
+			if( abs( rndNum - currentWinningGuess ) > abs( rndNum - guess ) ) {
+				memcpy( &winningClientInternetAddress, &clientInternetAddress, sizeof( clientInternetAddress ) );
+				memcpy( &winningClientInternetAddressLength, &clientInternetAddressLength, sizeof( clientInternetAddressLength ) );
+			}
+			timeOutInMilis /= 2;
+			setTimeOut( timeOutInMilis, internetSocket );
 		}
+
 		//send data
 		numberOfBytesSend = sendto( internetSocket, buffer, strlen( buffer ), 0, ( struct sockaddr * )&clientInternetAddress, clientInternetAddressLength );
 		if( numberOfBytesSend == -1 ) {
 			perror( "sendto" );
 		}
+
+		printf( "cycle\n" );
 	}
 }
 
@@ -196,7 +226,7 @@ int bufToInt( const char *buf ) {
 			rslt += buf[i] - '0';
 		} else {
 			return -1;
-		}	
+		}
 	}
 
 	return rslt;
