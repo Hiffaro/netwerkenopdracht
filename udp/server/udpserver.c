@@ -60,7 +60,8 @@
 	}
 #endif
 
-//enums and structs
+//defines
+#define BUFFERSIZE 100
 
 //function prototypes
 int initialization();
@@ -143,11 +144,12 @@ void execution( int internetSocket ) {
 	int numberOfBytesSend = 0;
 	int serverRunning = 1;
 	int gameRunning = 0;
+	int winner = 1;
 	int guess = -1;
+	int currentWinningGuess = -1;
 	int rndNum = 0;
-	int currentWinningGuess = 0;
 	int timeOutInMilis = 8000;
-	char buffer[1000];
+	char buffer[BUFFERSIZE];
 	struct sockaddr_storage clientInternetAddress;
 	struct sockaddr_storage winningClientInternetAddress;
 	socklen_t clientInternetAddressLength = sizeof( clientInternetAddress );
@@ -162,8 +164,51 @@ void execution( int internetSocket ) {
 		if( numberOfBytesReceived == -1 ) {
 			//handle if timeout happens
 			setTimeOut( 0, internetSocket );
+
+			memset( buffer, '\0', BUFFERSIZE );
+			strcpy( buffer, "you won?" );
+			
+			//send data
+			numberOfBytesSend = sendto( internetSocket, buffer, strlen( buffer ), 0, ( struct sockaddr * )&winningClientInternetAddress, winningClientInternetAddressLength );
+			if( numberOfBytesSend == -1 ) {
+				perror( "sendto" );
+			}
+
+			int startTime = time( NULL );
+			memset( buffer, '\0', BUFFERSIZE );
+			strcpy( buffer, "you lost!" );
+
+			while( ( time(NULL) - startTime ) <= 16 ) {
+				numberOfBytesReceived = recvfrom( internetSocket, buffer, sizeof( buffer ) - 1, 0, ( struct sockaddr * )&clientInternetAddress, &clientInternetAddressLength );
+				numberOfBytesSend = sendto( internetSocket, buffer, strlen( buffer ), 0, ( struct sockaddr * )&clientInternetAddress, clientInternetAddressLength );
+
+				if( ( struct sockaddr * )&clientInternetAddress == ( struct sockaddr * )&winningClientInternetAddress ) {
+					winner = 0;
+				}
+			}
+
+			if( winner ) {
+				memset( buffer, '\0', BUFFERSIZE );
+				strcpy( buffer, "you won!" );
+			
+				//send data
+				numberOfBytesSend = sendto( internetSocket, buffer, strlen( buffer ), 0, ( struct sockaddr * )&winningClientInternetAddress, winningClientInternetAddressLength );
+				if( numberOfBytesSend == -1 ) {
+					perror( "sendto" );
+				}
+			}
+
+			//reset all variables
+			numberOfBytesReceived = 0;
+			numberOfBytesSend = 0;
+			serverRunning = 1;
+			gameRunning = 0;
+			winner = 1;
+			guess = -1;
+			currentWinningGuess = -1;
+			rndNum = 0;
 			timeOutInMilis = 8000;
-			perror( "recvfrom" );
+
 			continue;
 		} else {
 			buffer[numberOfBytesReceived] = '\0';
@@ -199,11 +244,7 @@ void execution( int internetSocket ) {
 			setTimeOut( timeOutInMilis, internetSocket );
 		}
 
-		//send data
-		numberOfBytesSend = sendto( internetSocket, buffer, strlen( buffer ), 0, ( struct sockaddr * )&clientInternetAddress, clientInternetAddressLength );
-		if( numberOfBytesSend == -1 ) {
-			perror( "sendto" );
-		}
+		
 
 		printf( "cycle\n" );
 	}
