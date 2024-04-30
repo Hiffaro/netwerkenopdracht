@@ -8,6 +8,7 @@
 #include <string.h>					   //for memset
 #include <stdint.h>
 #include <time.h>
+#include <conio.h>
 
 void setTimeOut(uint32_t timeOutInMilis, uint32_t socket)
 {
@@ -29,37 +30,46 @@ void setTimeOut(uint32_t timeOutInMilis, uint32_t socket)
 
 int guessing(int *stop, int internet_socket, struct addrinfo *internet_address);
 void receiving(int internet_socket, char *buffer);
+void read_key_into_buffer(char *buffer, int size, int *offset);
+void clear_buffer(char *buffer, int size, int *offset);
+int is_buffer_ready(char *buffer);
 
 int main(int argc, char *argv[])
 {
-	// Initialization//
-	//printf("1\n");//
+	// Input buffer.
+	int offset = 0;
+	char buffer[65535];
+	clear_buffer(buffer, sizeof(buffer), &offset);
+
+	// Socket setup.
 	WSADATA wsaData;
 	WSAStartup(MAKEWORD(2, 0), &wsaData);
-
 	struct addrinfo internet_address_setup;
 	struct addrinfo *internet_address = NULL;
 	memset(&internet_address_setup, 0, sizeof internet_address_setup);
 	internet_address_setup.ai_family = AF_UNSPEC;
 	internet_address_setup.ai_socktype = SOCK_DGRAM;
 	getaddrinfo("127.0.0.1", "5555", &internet_address_setup, &internet_address);
-
-
-	//printf("2\n");//
-
-	int starttimer = 0;
-	int timer = 16000;
-	char buffer[100];
-	int stop = 1;
-	int startgame = 1;
 	int internet_socket;
 	internet_socket = socket(internet_address->ai_family, internet_address->ai_socktype, internet_address->ai_protocol);
 
-	// Execution//
-
-	//printf("3\n");//
-	while (stop)
+	// Execution.
+	int in_game = 0;
+	int awaiting_input = 0;
+	while (1)
 	{
+		read_key_into_buffer(buffer, sizeof(buffer), &offset);
+		if(!awaiting_input)
+		{
+			printf("Make a guess between 0 and 99: ");
+			awaiting_input = 1;
+		}
+		else if(is_buffer_ready(buffer))
+		{
+			// parse buffer here.
+		}
+
+/*
 		setTimeOut(500, internet_socket);
 		do
 		{
@@ -101,7 +111,9 @@ int main(int argc, char *argv[])
 			}
 			printf("type \"stop\" or \"continue\"\n");
 		}
+*/
 	}
+
 
 	// Clean up//
 	freeaddrinfo(internet_address);
@@ -150,4 +162,29 @@ void receiving(int internet_socket, char *buffer)
 		printf("Received : \"%s\"\n", buffer);
 		printf("error");
 	}
+}
+
+void read_key_into_buffer(char *buffer, int size, int *offset)
+{
+	if(_kbhit()) 
+	{
+		buffer[*offset] = _getch();
+		printf("%c", buffer[*offset]);
+		*offset++;
+		if(*offset == size-1)
+		{
+			buffer[*offset] = '\n';
+		}
+	}
+}
+
+void clear_buffer(char *buffer, int size, int *offset)
+{
+	memset(buffer, 0, size);
+	*offset = 0;
+}
+
+int is_buffer_ready(char *buffer)
+{
+	return strchr(buffer, '\n') != NULL;
 }
