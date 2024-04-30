@@ -7,6 +7,7 @@
 #include <stdlib.h>					   //for exit
 #include <string.h>					   //for memset
 #include <stdint.h>
+#include <time.h>
 
 void setTimeOut(uint32_t timeOutInMilis, uint32_t socket)
 {
@@ -32,7 +33,7 @@ void receiving(int internet_socket, char *buffer);
 int main(int argc, char *argv[])
 {
 	// Initialization//
-
+	//printf("1\n");//
 	WSADATA wsaData;
 	WSAStartup(MAKEWORD(2, 0), &wsaData);
 
@@ -41,19 +42,23 @@ int main(int argc, char *argv[])
 	memset(&internet_address_setup, 0, sizeof internet_address_setup);
 	internet_address_setup.ai_family = AF_UNSPEC;
 	internet_address_setup.ai_socktype = SOCK_DGRAM;
-	getaddrinfo("fe80::4659:7f0d:5209:2ee2", "24042", &internet_address_setup, &internet_address);
+	getaddrinfo("127.0.0.1", "5555", &internet_address_setup, &internet_address);
+
+
+	//printf("2\n");//
 
 	int starttimer = 0;
 	int timer = 16000;
 	char buffer[100];
-	int stop = 0;
+	int stop = 1;
 	int startgame = 1;
 	int internet_socket;
 	internet_socket = socket(internet_address->ai_family, internet_address->ai_socktype, internet_address->ai_protocol);
 
 	// Execution//
 
-	while (stop != 1)
+	//printf("3\n");//
+	while (stop)
 	{
 		setTimeOut(500, internet_socket);
 		do
@@ -116,7 +121,7 @@ int guessing(int *stop, int internet_socket, struct addrinfo *internet_address)
 
 	if (strcmp(input, "stop") == 0)
 	{
-		*stop = 1;
+		*stop = 0;
 		return 1;
 	}
 	value = atoi(input);
