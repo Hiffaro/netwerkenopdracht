@@ -42,24 +42,25 @@ void cleanup(int internet_socket);
 
 int main(int argc, char *argv[])
 {
-	if(argc < 2)
+	if (argc < 2)
 	{
 		printf("You must supply the remote IP address to this program.\n");
 		return 1;
 	}
 	OSInit();
-	while(1)
+	while (1)
 	{
 		int internet_socket = initialization(argv[1]);
 		int should_continue = execution(internet_socket);
 		cleanup(internet_socket);
-		if(!should_continue) break;
+		if (!should_continue)
+			break;
 	}
 	OSCleanup();
 	return 0;
 }
 
-int initialization(const char* ip)
+int initialization(const char *ip)
 {
 	// Get local address info.
 	struct addrinfo internet_address_setup;
@@ -116,21 +117,40 @@ int initialization(const char* ip)
 
 int execution(int internet_socket)
 {
+	int ai_mode = 0;
+	int lower_bound = 0;
+	int higher_bound = 1000000;
 	char buffer[1000];
-	while(1)
+	while (1)
 	{
 		// Get guess.
 		int guess = -1;
-		while(guess < 0 || guess > 1000000) {
-			printf("Pick a number between 0 and 1 million: ");
-			scanf("%s", buffer);
-			guess = atoi(buffer);
+		if (!ai_mode)
+		{
+			while (guess < 0 || guess > 1000000)
+			{
+				printf("Pick a number between 0 and 1 million, or type ai to let me guess: ");
+				scanf("%s", buffer);
+				if (strcmp(buffer, "ai") == 0)
+				{
+					ai_mode = 1;
+					guess = (lower_bound + higher_bound) / 2;
+					printf("Guessing %d...\n", guess);
+					break;
+				}
+				guess = atoi(buffer);
+			}
+		}
+		else
+		{
+			guess = (lower_bound + higher_bound) / 2;
+			printf("Guessing %d...\n", guess);
 		}
 
 		// Send guess.
-		guess = ntohl(guess);
-		int sent = send(internet_socket, (char*)&guess, sizeof(guess), 0);
-		if(sent == -1)
+		int to_send = ntohl(guess);
+		int sent = send(internet_socket, (char *)&to_send, sizeof(to_send), 0);
+		if (sent == -1)
 		{
 			perror("send");
 			return 0;
@@ -138,23 +158,25 @@ int execution(int internet_socket)
 
 		// Get answer.
 		memset(buffer, 0, sizeof(buffer));
-		int received = recv(internet_socket, buffer, sizeof(buffer)-1, 0);
-		if(received == -1)
+		int received = recv(internet_socket, buffer, sizeof(buffer) - 1, 0);
+		if (received == -1)
 		{
 			perror("recv");
 			return 0;
 		}
 		else
 		{
-			if(strcmp(buffer, "Hoger") == 0 || strcmp(buffer, "Higher") == 0)
+			if (strcmp(buffer, "Hoger") == 0 || strcmp(buffer, "Higher") == 0)
 			{
 				printf("Hoger!\n");
+				lower_bound = guess;
 			}
-			else if(strcmp(buffer, "Lager") == 0 || strcmp(buffer, "Lower") == 0)
+			else if (strcmp(buffer, "Lager") == 0 || strcmp(buffer, "Lower") == 0)
 			{
 				printf("Lager!\n");
+				higher_bound = guess;
 			}
-			else if(strcmp(buffer, "Correct") == 0)
+			else if (strcmp(buffer, "Correct") == 0)
 			{
 				printf("Correct!\n");
 				printf("Type q to stop playing or anything else to continue: ");
