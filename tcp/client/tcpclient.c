@@ -42,10 +42,15 @@ void cleanup(int internet_socket);
 
 int main(int argc, char *argv[])
 {
+	if(argc < 2)
+	{
+		printf("You must supply the remote IP address to this program.\n");
+		return 1;
+	}
 	OSInit();
 	while(1)
 	{
-		int internet_socket = initialization();
+		int internet_socket = initialization(argv[1]);
 		int should_continue = execution(internet_socket);
 		cleanup(internet_socket);
 		if(!should_continue) break;
@@ -54,7 +59,7 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-int initialization()
+int initialization(const char* ip)
 {
 	// Get local address info.
 	struct addrinfo internet_address_setup;
@@ -62,7 +67,7 @@ int initialization()
 	memset(&internet_address_setup, 0, sizeof internet_address_setup);
 	internet_address_setup.ai_family = AF_UNSPEC;
 	internet_address_setup.ai_socktype = SOCK_STREAM;
-	int getaddrinfo_return = getaddrinfo("127.0.0.1", "5555", &internet_address_setup, &internet_address_result);
+	int getaddrinfo_return = getaddrinfo(ip, "5555", &internet_address_setup, &internet_address_result);
 	if (getaddrinfo_return != 0)
 	{
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(getaddrinfo_return));
