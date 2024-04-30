@@ -146,7 +146,6 @@ Thumbs.db:encryptable
 ehthumbs.db
 ehthumbs_vista.db
 [Dd]esktop.ini
-tcp_client.exe
-tcp_server.exe
-udp_client.exe
-udp_server.exe
+
+# Executables
+**/*.exe
