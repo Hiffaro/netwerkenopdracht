@@ -37,6 +37,13 @@ int is_buffer_ready(char *buffer);
 
 int main(int argc, char *argv[])
 {
+	// Require IP.
+	if (argc < 2)
+	{
+		printf("You must supply the remote IP address to this program.\n");
+		return 1;
+	}
+
 	// Input buffer.
 	int offset = 0;
 	char buffer[65535];
@@ -51,7 +58,7 @@ int main(int argc, char *argv[])
 	memset(&internet_address_setup, 0, sizeof internet_address_setup);
 	internet_address_setup.ai_family = AF_UNSPEC;
 	internet_address_setup.ai_socktype = SOCK_DGRAM;
-	getaddrinfo("127.0.0.1", "5555", &internet_address_setup, &internet_address);
+	getaddrinfo(argv[1], "5555", &internet_address_setup, &internet_address);
 	int internet_socket;
 	internet_socket = socket(internet_address->ai_family, internet_address->ai_socktype, internet_address->ai_protocol);
 
