@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 	}
 	OSInit();
 	while (1)
-	{
+	{   
 		int internet_socket = initialization(argv[1]);
 		int should_continue = execution(internet_socket);
 		cleanup(internet_socket);
@@ -129,7 +129,7 @@ int execution(int internet_socket)
 		{
 			while (guess < 0 || guess > 1000000)
 			{
-				printf("Pick a number between 0 and 1 million, or type ai to let me guess: ");
+				printf("Pick a number between 0 and 1 million, type ai to let me guess, or type quit to stop playing: ");
 				scanf("%s", buffer);
 				if (strcmp(buffer, "ai") == 0)
 				{
@@ -137,6 +137,11 @@ int execution(int internet_socket)
 					guess = (lower_bound + higher_bound) / 2;
 					printf("Guessing %d...\n", guess);
 					break;
+				}
+				else if(strcmp(buffer, "quit") == 0)
+				{
+					close(internet_socket);
+					return 0;
 				}
 				guess = atoi(buffer);
 			}
