@@ -6,6 +6,8 @@
 	#include <unistd.h> //for close
 	#include <stdlib.h> //for exit
 	#include <string.h> //for memset
+	#include <time.h> //for time( NULL )
+	#include <stdint.h> //for uintx_t variables
 
 	void OSInit( void ) {
 		WSADATA wsaData;
@@ -36,29 +38,45 @@
 	void OSCleanup( void ) {}
 #endif
 
+enum opcodes {
+	serverRunning,
+	serverStopped
+};
+
 int initialization();
 int connection( int internetSocket );
-void execution( int internetSocket );
-void cleanup( int internetSocket, int clientInternetSocket );
+void execution( int internetSocket, enum opcodes *code );
+void closeClientSocket( int clientInternetSocket );
+void cleanup( int internetSocket );
 
 int main( int argc, char * argv[] ) {
+	//variables
+	int running = 1;
+	enum opcodes opcode = serverRunning;
+	int clientInternetSocket = 0;
+
 	//Initialization
 
+	srand( time( NULL ) );
 	OSInit();
 
 	int internetSocket = initialization();
 
-	//Connection
+	//basic gameloop
+	while( opcode == serverRunning) {
+		//Connection
 
-	int clientInternetSocket = connection( internetSocket );
+		clientInternetSocket = connection( internetSocket );
 
-	//Execution
+		//Execution
 
-	execution( clientInternetSocket );
+		execution( clientInternetSocket, &opcode );
+		closeClientSocket( clientInternetSocket );
+	}
 
 	//Clean up
 
-	cleanup( internetSocket, clientInternetSocket );
+	cleanup( internetSocket );
 	OSCleanup();
 
 	return 0;
@@ -72,7 +90,7 @@ int initialization() {
 	internetAddressSetup.ai_family = AF_UNSPEC;
 	internetAddressSetup.ai_socktype = SOCK_STREAM;
 	internetAddressSetup.ai_flags = AI_PASSIVE;
-	int getaddrinfo_return = getaddrinfo( NULL, "24042", &internetAddressSetup, &internetAddressResult );
+	int getaddrinfo_return = getaddrinfo( NULL, "5555", &internetAddressSetup, &internetAddressResult );
 	if( getaddrinfo_return != 0 ) {
 		fprintf( stderr, "getaddrinfo: %s\n", gai_strerror( getaddrinfo_return ) );
 		exit( 1 );
@@ -128,33 +146,66 @@ int connection( int internetSocket ) {
 	return clientSocket;
 }
 
-void execution( int internetSocket ) {
+void execution( int internetSocket, enum opcodes *code ) {
 	//Step 3.1
 	int numberOfBytesReceived = 0;
-	char buffer[1000];
-	numberOfBytesReceived = recv( internetSocket, buffer, ( sizeof buffer ) - 1, 0 );
-	if( numberOfBytesReceived == -1 ) {
-		perror( "recv" );
-	} else {
-		buffer[numberOfBytesReceived] = '\0';
-		printf( "Received : %s\n", buffer );
-	}
+	int guess = 0;
+	int game = 1;
+	
+	int toGuess = rand() % 1000000;
+	printf( "toGuess: %i\n", toGuess );
+	uint8_t buffer[1000];
 
-	//Step 3.2
-	int number_of_bytes_send = 0;
-	number_of_bytes_send = send( internetSocket, "Hello TCP world!", 16, 0 );
-	if( number_of_bytes_send == -1 ) {
-		perror( "send" );
+	while( game == 1 ) {
+		memset( buffer, '\0', 1000 );
+
+		numberOfBytesReceived = recv( internetSocket, buffer, sizeof( buffer ) - 1, 0 );
+		if( numberOfBytesReceived == -1 ) {
+			perror( "recv" );
+			game = 0;
+			break;
+		} else {
+			printf( "buffer: %i\n", buffer );
+			guess = *( uint32_t * )buffer;
+			printf( "guess: %i\n", guess );
+			guess = ntohl( guess );
+			printf( "guess: %i\n", guess );
+
+			if( guess < toGuess ) {
+				strcpy( buffer, "Lager" );
+			} else if( guess > toGuess ) {
+				strcpy( buffer, "Hoger" );
+			} else if( guess == toGuess ) {
+				strcpy( buffer, "Correct" );
+				game = 0;
+			} else if( guess == -1 ) {
+				game = 0;
+				*code = serverStopped;
+			}
+				
+			//send response
+			int number_of_bytes_send = 0;
+			number_of_bytes_send = send( internetSocket, buffer, strlen( buffer ), 0 );
+			if( number_of_bytes_send == -1 ) {
+				perror( "send" );
+				game = 0;
+				break;
+			}
+		}
 	}
 }
 
-//code used to shutdown the connection and close the internetSockets
-void cleanup( int internetSocket, int clientInternetSocket ) {
+//code used to shutdown the connection
+void closeClientSocket( int clientInternetSocket ) {
 	int shutdownReturn = shutdown( clientInternetSocket, SD_RECEIVE );
 	if( shutdownReturn == -1 ) {
 		perror( "shutdown" );
 	}
     
 	close( clientInternetSocket );
+}
+
+//code used to close the internetSockets
+void cleanup( int internetSocket ) {
 	close( internetSocket );
 }
