@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <conio.h>
+#include <synchapi.h>
 
 void setTimeOut(uint32_t timeOutInMilis, uint32_t socket)
 {
@@ -39,6 +40,7 @@ int main(int argc, char *argv[])
 	// Input buffer.
 	int offset = 0;
 	char buffer[65535];
+	char netbuf[256];
 	clear_buffer(buffer, sizeof(buffer), &offset);
 
 	// Socket setup.
@@ -53,127 +55,108 @@ int main(int argc, char *argv[])
 	int internet_socket;
 	internet_socket = socket(internet_address->ai_family, internet_address->ai_socktype, internet_address->ai_protocol);
 
+	// Prepare space for receiving.
+	struct sockaddr_storage client_ia;
+	socklen_t client_ia_length = sizeof(client_ia);
+
 	// Execution.
 	int in_game = 0;
 	int awaiting_input = 0;
+	int guess = -1;
+	clock_t start;
+	int timer_running = 0;
 	while (1)
 	{
+		// Populate the input and parse.
 		read_key_into_buffer(buffer, sizeof(buffer), &offset);
 		if(!awaiting_input)
 		{
-			printf("Make a guess between 0 and 99: ");
+			printf("Make a guess between 0 and 99, or type quit to quit: ");
 			awaiting_input = 1;
+		}
+		else if(strcmp(buffer, "quit") == 0)
+		{
+			break;
 		}
 		else if(is_buffer_ready(buffer))
 		{
-			// parse buffer here.
+			int handled = sscanf(buffer, "%d", &guess);
+			if(handled != 1 || guess < 0 || guess > 99)
+			{
+				guess = -1;
+			}
+			clear_buffer(buffer, sizeof(buffer), &offset);
+			awaiting_input = 0;
 		}
 
-/*
-		setTimeOut(500, internet_socket);
-		do
+		// Send guess if given.
+		if(!awaiting_input && guess != -1)
 		{
+			// Convert to string.
+			memset(netbuf, 0, sizeof(netbuf));
+			sprintf(netbuf, "%d", guess);
 
-			if (guessing(&stop, internet_socket, internet_address))
-			{
-				continue;
-			}
-			if (startgame)
-			{
-				startgame = 0;
-				starttimer = time(NULL);
-			}
-			memset(buffer, '\0', 100);
+			// Send over socket.
+			sendto(internet_socket, netbuf, strlen(netbuf), 0, internet_address->ai_addr, internet_address->ai_addrlen);
+			
+			// Start the 16s timeout.
+			start = clock();
+			timer_running = 1;
 
-			receiving(internet_socket, buffer);
-
-		} while ((time(NULL) - starttimer) < 16);
-		startgame = 1;
-		if (buffer[0] == '\0')
-		{
-			printf("you lost?\n");
+			// Just a very small sleep to allow the server to react for maximum usability.
+			Sleep(10);
 		}
-		printf("want to play a other game type \"continue\" otherwise type \"stop\"\n");
 
-		while (stop != 1)
+		// Get a response?
+		int timeout = 0;
+		setsockopt(internet_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof timeout);
+		struct timeval tv;
+		fd_set readfds;
+		FD_ZERO(&readfds);
+        FD_SET(internet_socket, &readfds);
+        tv.tv_sec = 0;
+        tv.tv_usec = 0;
+		int available = select(internet_socket + 1, &readfds, NULL, NULL, &tv); 
+		if(available == 1)
 		{
-			char input[20];
-			scanf("%s", input);
-
-			if (strcmp(input, "stop") == 0)
-			{
-				stop = 1;
-				continue;
-			}
-			else if (strcmp(input, "continue") == 0)
-			{
-				break;
-			}
-			printf("type \"stop\" or \"continue\"\n");
+			int count = recvfrom(internet_socket, netbuf, sizeof(netbuf) - 1, 0, (struct sockaddr *)&client_ia, &client_ia_length);
+			if(strcmp(netbuf, "You won !") == 0 || strcmp(netbuf, "You Won !") == 0) timer_running = 0;
+			if(guess == -1) printf("\n%s\nMake a guess between 0 and 99, or type quit to quit: %s", netbuf, buffer);
+			else            printf("%s\n", netbuf);
 		}
-*/
+
+		// Check for timeout.
+		if(timer_running) 
+		{
+			clock_t now = clock();
+			if((now - start) / CLOCKS_PER_SEC > 16.0)
+			{
+				if(awaiting_input) printf("\nYou Lost ?\n");
+				else               printf("You Lost ?\n");
+				timer_running = 0;
+			}
+		}
+
+		// Always reset guess when we get here.
+		guess = -1;
 	}
 
-
-	// Clean up//
+	// Clean up.
 	freeaddrinfo(internet_address);
 	close(internet_socket);
 	WSACleanup();
-
 	return 0;
-}
-
-int guessing(int *stop, int internet_socket, struct addrinfo *internet_address)
-{
-
-	char input[20];
-	int value = 0;
-	printf("type in a number between 0 and 99 \n ");
-	scanf("%s", input);
-
-	if (strcmp(input, "stop") == 0)
-	{
-		*stop = 0;
-		return 1;
-	}
-	value = atoi(input);
-	if (value >= 0 && value < 100)
-	{
-
-		sendto(internet_socket, input, strlen(input), 0, internet_address->ai_addr, internet_address->ai_addrlen);
-	}
-	else
-	{
-		printf("pick a number between 0 and 99 or type stop to end the game \n");
-		return 1;
-	}
-	return 0;
-}
-
-void receiving(int internet_socket, char *buffer)
-{
-
-	struct sockaddr_storage clientInternetAddress;
-	socklen_t clientInternetAddressLength = sizeof(clientInternetAddress);
-	int numberOfBytesReceived = recvfrom(internet_socket, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *)&clientInternetAddress, &clientInternetAddressLength);
-	if (numberOfBytesReceived != -1)
-	{
-		buffer[numberOfBytesReceived] = '\0';
-		printf("Received : \"%s\"\n", buffer);
-		printf("error");
-	}
 }
 
 void read_key_into_buffer(char *buffer, int size, int *offset)
 {
 	if(_kbhit()) 
 	{
-		buffer[*offset] = _getch();
-		printf("%c", buffer[*offset]);
-		*offset++;
+		buffer[*offset] = _getche();
+		*offset += 1;
 		if(*offset == size-1)
 		{
-			buffer[*offset] = '\n';
+			buffer[*offset] = '\r';
 		}
 	}
 }
@@ -186,5 +169,9 @@ void clear_buffer(char *buffer, int size, int *offset)
 
 int is_buffer_ready(char *buffer)
 {
-	return strchr(buffer, '\n') != NULL;
+	char *ready = strchr(buffer, '\r');
+	if(ready == NULL) return 0;
+	printf("\n");
+	*ready = '\n';
+	return 1;
 }
