@@ -171,9 +171,9 @@ void execution( int internetSocket, enum opcodes *code ) {
 			guess = ntohl( guess );
 			printf( "guess: %i\n", guess );
 
-			if( guess < toGuess ) {
+			if( guess > toGuess ) {
 				strcpy( buffer, "Lager" );
-			} else if( guess > toGuess ) {
+			} else if( guess < toGuess ) {
 				strcpy( buffer, "Hoger" );
 			} else if( guess == toGuess ) {
 				strcpy( buffer, "Correct" );
