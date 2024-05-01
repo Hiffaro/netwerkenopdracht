@@ -219,7 +219,7 @@ void execution( int internetSocket ) {
 				setTimeOut( 10, internetSocket );
 				numberOfBytesReceived = recvfrom( internetSocket, buffer, sizeof( buffer ) - 1, 0, ( struct sockaddr * )&clientInternetAddress, &clientInternetAddressLength );
 				if( numberOfBytesReceived == -1 ) {
-					perror( "recvfrom" );
+					
 				} else {
 					buffer[numberOfBytesReceived] = '\0';
 					printf( "Received : \"%s\"\n", buffer );
