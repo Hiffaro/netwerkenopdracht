@@ -73,6 +73,7 @@ void cleanup( int internetSocket );
 int main( int argc, char * argv[] ) {
 	//init
 
+	srand( time( NULL ) );
 	OSInit();
 	int internetSocket = initialization();
 
@@ -98,7 +99,7 @@ int initialization() {
 	internetAddressSetup.ai_family = AF_UNSPEC;
 	internetAddressSetup.ai_socktype = SOCK_DGRAM;
 	internetAddressSetup.ai_flags = AI_PASSIVE;
-	int getaddrinfoReturn = getaddrinfo( NULL, "24042", &internetAddressSetup, &internetAddressResult );
+	int getaddrinfoReturn = getaddrinfo( NULL, "5555", &internetAddressSetup, &internetAddressResult );
     //if something went wrong with the getaddrinfo function exit
 	if( getaddrinfoReturn != 0 ) {
 		fprintf( stderr, "getaddrinfo: %s\n", gai_strerror( getaddrinfoReturn ) );
@@ -227,7 +228,7 @@ void execution( int internetSocket ) {
 			continue;
 		} else if( gameRunning == 0 ) {
 			//if there is no game running start a new one
-			srand( time( NULL ) );
+			
 			rndNum = rand() % 100;
 			gameRunning = 1;
 			currentWinningGuess = guess;
