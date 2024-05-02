@@ -158,13 +158,8 @@ int initialization()
 
 void execution(int internetSocket)
 {
-	// variables
-	int numberOfBytesReceived = 0;
-	int numberOfBytesSend = 0;
-	int serverRunning = 1;
 	int toGuess = 0;
 	int winningGuess = 0;
-	int noWinner = 0;
 	int guess = 0;
 	double timeout = 8.0;
 	clock_t timeZero = 0;
@@ -176,8 +171,13 @@ void execution(int internetSocket)
 	socklen_t winningClientInternetAddressLength = sizeof(winningClientInternetAddress);
 	enum states state = idle;
 
-	// init
-	// setTimeOut( 2000, internetSocket );
+	// Open logfile.
+	FILE* logfile = fopen("udpserver.log", "w");
+	if(logfile == NULL)
+	{
+		printf("Could not open log file for writing.\n");
+		return;
+	}
 
 	while (1)
 	{
@@ -194,15 +194,20 @@ void execution(int internetSocket)
 				continue;
 			buffer[recv] = '\0';
 			printf("Received: \"%s\"\n", buffer);
+			fprintf(logfile, "Received: \"%s\"\n", buffer);
 			guess = atoi(buffer);
 
 			// Depending on state...
 			if (state == idle)
 			{
+				printf("Handling data in idle state...\n");
+				fprintf(logfile, "Handling data in idle state...\n");
 				// Make a new random number.
 				toGuess = rand() % 100;
 
 				// They're automatically the winner.
+				printf("New best guess!\n");
+				fprintf(logfile, "New best guess!\n");
 				strcpy(outbuf, "You Won ?");
 				int sent = sendto(internetSocket, outbuf, strlen(outbuf), 0, (struct sockaddr *)&clientInternetAddress, clientInternetAddressLength);
 				if (sent == -1)
@@ -216,10 +221,15 @@ void execution(int internetSocket)
 				timeout = 8.0;
 
 				// Switch state.
+				printf("Transitioning to running state...\n");
+				fprintf(logfile, "Transitioning to running state...\n");
 				state = running;
 			}
 			else if(state == running)
 			{
+				printf("Handling data in running state...\n");
+				fprintf(logfile, "Handling data in running state...\n");
+
 				// Reset and halve the timer.
 				timeZero = clock();
 				timeout /= 2.0;
@@ -227,6 +237,8 @@ void execution(int internetSocket)
 				// Is the guess closer?
 				if(abs(guess - toGuess) < abs(winningGuess - toGuess))
 				{
+					printf("New best guess!\n");
+					fprintf(logfile, "New best guess!\n");
 					strcpy(outbuf, "You Won ?");
 					int sent = sendto(internetSocket, outbuf, strlen(outbuf), 0, (struct sockaddr *)&clientInternetAddress, clientInternetAddressLength);
 					if (sent == -1)
@@ -238,6 +250,8 @@ void execution(int internetSocket)
 			}
 			else if(state == overtime)
 			{
+				printf("Handling data in overtime state...\n");
+				fprintf(logfile, "Handling data in overtime state...\n");
 				// Doesn't matter what they said, it's a loss.
 				strcpy(outbuf, "You Lost !");
 				int sent = sendto(internetSocket, outbuf, strlen(outbuf), 0, (struct sockaddr *)&clientInternetAddress, clientInternetAddressLength);
@@ -251,19 +265,27 @@ void execution(int internetSocket)
 		{
 			if(state == overtime)
 			{
+				printf("Transitioning to idle state...\n");
+				fprintf(logfile, "Transitioning to idle state...\n");
 				state = idle;
 			}
 			else if(state == running)
 			{
+				printf("Running state timeout. Announcing winner...\n");
+				fprintf(logfile, "Running state timeout. Announcing winner...\n");
 				memset(outbuf, 0, sizeof(outbuf));
 				strcpy(outbuf, "You Won !");
-				numberOfBytesSend = sendto(internetSocket, outbuf, strlen(outbuf), 0, (struct sockaddr *)&winningClientInternetAddress, winningClientInternetAddressLength);
+				int sent = sendto(internetSocket, outbuf, strlen(outbuf), 0, (struct sockaddr *)&winningClientInternetAddress, winningClientInternetAddressLength);
+				printf("Transitioning to overtime state...\n");
+				fprintf(logfile, "Transitioning to overtime state...\n");
 				state = overtime;
 				timeout = 16.0;
 				timeZero = clock();
 			}
 		}
 	}
+
+	fclose(logfile);
 }
 
 // standart cleanup function to close the internet socket provided
