@@ -1,257 +1,287 @@
-//includes
+// includes
 #ifdef _WIN32
-	#define _WIN32_WINNT _WIN32_WINNT_WIN7
-	#include <stdio.h>
-	#include <stdlib.h>
-	#include <string.h>
-    #include <stdint.h>
-	#include <winsock2.h>
-	#include <ws2tcpip.h>
-	#include <unistd.h>
-	#include <time.h>
+#define _WIN32_WINNT _WIN32_WINNT_WIN7
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <unistd.h>
+#include <time.h>
 
-    //windows needs wsaData functionality
+// windows needs wsaData functionality
 
-	void OSInit( void ) {
-		WSADATA wsaData;
-		int WSAError = WSAStartup( MAKEWORD( 2, 0 ), &wsaData ); 
-		if( WSAError != 0 ) {
-			fprintf( stderr, "WSAStartup errno = %d\n", WSAError );
-			exit( -1 );
-		}
+void OSInit(void)
+{
+	WSADATA wsaData;
+	int WSAError = WSAStartup(MAKEWORD(2, 0), &wsaData);
+	if (WSAError != 0)
+	{
+		fprintf(stderr, "WSAStartup errno = %d\n", WSAError);
+		exit(-1);
 	}
+}
 
-	void OSCleanup( void ) {
-		WSACleanup();
-	}
+void OSCleanup(void)
+{
+	WSACleanup();
+}
 
-	void setTimeOut( uint32_t timeOutInMilis, uint32_t socket ) {
-		DWORD timeOut = timeOutInMilis;
-		setsockopt( socket, SOL_SOCKET, SO_RCVTIMEO, ( const char* )&timeOut, sizeof( timeOut ) );
-	}
+void setTimeOut(uint32_t timeOutInMilis, uint32_t socket)
+{
+	DWORD timeOut = timeOutInMilis;
+	setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeOut, sizeof(timeOut));
+}
 
-	#define perror( string ) fprintf( stderr, string ": WSA errno = %d\n", WSAGetLastError() )
+#define perror(string) fprintf(stderr, string ": WSA errno = %d\n", WSAGetLastError())
 #else
-	#include <stdio.h>
-	#include <stdlib.h>
-	#include <string.h>
-    #include <stdint.h>
-	#include <sys/socket.h>
-	#include <sys/types.h>
-	#include <netdb.h>
-	#include <netinet/in.h>
-	#include <arpa/inet.h>
-	#include <errno.h>
-	#include <unistd.h>
-	#include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <errno.h>
+#include <unistd.h>
+#include <time.h>
 
-	int OSInit( void ) {}
-	int OSCleanup( void ) {}
+int OSInit(void) {}
+int OSCleanup(void) {}
 
-	void setTimeOut( uint32_t timeOutInMilis, uint32_t socket ) {
-		struct timeval tv;
+void setTimeOut(uint32_t timeOutInMilis, uint32_t socket)
+{
+	struct timeval tv;
 
-		uint32_t sec = timoutInMilis / 1000;
-		uint32_t usec = ( timeOutInMilis % 1000 ) * 1000;
+	uint32_t sec = timoutInMilis / 1000;
+	uint32_t usec = (timeOutInMilis % 1000) * 1000;
 
-		tv.tv_sec = sec;
-		tv.tv_usec = usec;
-		setsockopt( socket, SOL_SOCKET, SO_RCVTIMEO, ( const char* )&tv, sizeof( tv ) );
-	}
+	tv.tv_sec = sec;
+	tv.tv_usec = usec;
+	setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(tv));
+}
 #endif
 
-//defines
+// defines
 #define BUFFERSIZE 100
 
-//enums
-enum states {
+// enums
+enum states
+{
 	idle,
 	running,
-	timeout
+	overtime
 };
 
-//function prototypes
+// function prototypes
 int initialization();
-void execution( int internetSocket );
-void cleanup( int internetSocket );
+void execution(int internetSocket);
+void cleanup(int internetSocket);
+int available(int sock);
 
-//main
-int main( int argc, char * argv[] ) {
-	//init
-
-	srand( time( NULL ) );
+// main
+int main(int argc, char *argv[])
+{
+	// init
+	srand(time(NULL));
 	OSInit();
 	int internetSocket = initialization();
 
-	//execution
+	// execution
+	execution(internetSocket);
 
-	execution( internetSocket );
-
-	//closing
-
-	cleanup( internetSocket );
+	// closing
+	cleanup(internetSocket);
 	OSCleanup();
-
 	return 0;
 }
 
-//function definitions
-
-int initialization() {
-    //variables
+int initialization()
+{
+	// variables
 	struct addrinfo internetAddressSetup;
 	struct addrinfo *internetAddressResult;
-	memset( &internetAddressSetup, 0, sizeof internetAddressSetup );
+	memset(&internetAddressSetup, 0, sizeof internetAddressSetup);
 	internetAddressSetup.ai_family = AF_UNSPEC;
 	internetAddressSetup.ai_socktype = SOCK_DGRAM;
 	internetAddressSetup.ai_flags = AI_PASSIVE;
-	int getaddrinfoReturn = getaddrinfo( NULL, "5555", &internetAddressSetup, &internetAddressResult );
-    //if something went wrong with the getaddrinfo function exit
-	if( getaddrinfoReturn != 0 ) {
-		fprintf( stderr, "getaddrinfo: %s\n", gai_strerror( getaddrinfoReturn ) );
-		exit( 1 );
+	int getaddrinfoReturn = getaddrinfo(NULL, "5555", &internetAddressSetup, &internetAddressResult);
+	// if something went wrong with the getaddrinfo function exit
+	if (getaddrinfoReturn != 0)
+	{
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(getaddrinfoReturn));
+		exit(1);
 	}
 	int internetSocket = -1;
 	struct addrinfo *internetAddressResultIterator = internetAddressResult;
 
-    //get valid internetSocket
-	while( internetAddressResultIterator != NULL ) {
-		internetSocket = socket( internetAddressResultIterator->ai_family, internetAddressResultIterator->ai_socktype, internetAddressResultIterator->ai_protocol );
-		if( internetSocket == -1 ) {
-			perror( "socket" );
-		} else {
-			int bindReturn = bind( internetSocket, internetAddressResultIterator->ai_addr, internetAddressResultIterator->ai_addrlen );
-			if( bindReturn == -1 ) {
-				close( internetSocket );
-				perror( "bind" );
-			} else {
+	// get valid internetSocket
+	while (internetAddressResultIterator != NULL)
+	{
+		internetSocket = socket(internetAddressResultIterator->ai_family, internetAddressResultIterator->ai_socktype, internetAddressResultIterator->ai_protocol);
+		if (internetSocket == -1)
+		{
+			perror("socket");
+		}
+		else
+		{
+			int bindReturn = bind(internetSocket, internetAddressResultIterator->ai_addr, internetAddressResultIterator->ai_addrlen);
+			if (bindReturn == -1)
+			{
+				close(internetSocket);
+				perror("bind");
+			}
+			else
+			{
 				break;
 			}
 		}
 		internetAddressResultIterator = internetAddressResultIterator->ai_next;
 	}
 
-    //free addrinfo before exiting
-	freeaddrinfo( internetAddressResult );
+	// free addrinfo before exiting
+	freeaddrinfo(internetAddressResult);
 
-    //exit if no valid socket was found
-	if( internetSocket == -1 ) {
-		fprintf( stderr, "socket: no valid socket address found\n" );
-		exit( 2 );
+	// exit if no valid socket was found
+	if (internetSocket == -1)
+	{
+		fprintf(stderr, "socket: no valid socket address found\n");
+		exit(2);
 	}
 
-    //return internetsocket that is being used by the server from now on
+	// return internetsocket that is being used by the server from now on
 	return internetSocket;
 }
 
-//execution fase, this function contains all logic and functions
-void execution( int internetSocket ) {
-    //variables
+void execution(int internetSocket)
+{
+	// variables
 	int numberOfBytesReceived = 0;
 	int numberOfBytesSend = 0;
 	int serverRunning = 1;
-	int numberToGuess = 0;
+	int toGuess = 0;
 	int winningGuess = 0;
 	int noWinner = 0;
 	int guess = 0;
-	int timeOutInMilis = 8000;
+	double timeout = 8.0;
 	clock_t timeZero = 0;
 	char buffer[BUFFERSIZE];
+	char outbuf[BUFFERSIZE];
 	struct sockaddr_storage clientInternetAddress;
 	struct sockaddr_storage winningClientInternetAddress;
-	socklen_t clientInternetAddressLength = sizeof( clientInternetAddress );
-	socklen_t winningClientInternetAddressLength = sizeof( winningClientInternetAddress );
+	socklen_t clientInternetAddressLength = sizeof(clientInternetAddress);
+	socklen_t winningClientInternetAddressLength = sizeof(winningClientInternetAddress);
 	enum states state = idle;
-	
-	//init
-	//setTimeOut( 2000, internetSocket );
 
-	while( serverRunning != 0 ) {
-		switch ( state ) {
-			case idle:
-				printf( "idle\n" );
-				//receive data
-				numberOfBytesReceived = recvfrom( internetSocket, buffer, sizeof( buffer ) - 1, 0, ( struct sockaddr * )&clientInternetAddress, &clientInternetAddressLength );
-				if( numberOfBytesReceived == -1 ) {
-					perror( "recvfrom" );
-				} else {
-					buffer[numberOfBytesReceived] = '\0';
-					printf( "Received : \"%s\"\n", buffer );
-					numberToGuess = rand() % 100;
-					numberOfBytesSend = sendto( internetSocket, "you won?", 8, 0, ( struct sockaddr * )&clientInternetAddress, clientInternetAddressLength );
-					if( numberOfBytesSend == -1 ) {
-						perror( "sendto" );
-					}
+	// init
+	// setTimeOut( 2000, internetSocket );
+
+	while (1)
+	{
+		// Clean data.
+		memset(buffer, 0, sizeof(buffer));
+		memset(outbuf, 0, sizeof(outbuf));
+
+		// Do we have data waiting?
+		if (available(internetSocket))
+		{
+			// Get it.
+			int recv = recvfrom(internetSocket, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *)&clientInternetAddress, &clientInternetAddressLength);
+			if (recv == -1)
+				continue;
+			buffer[recv] = '\0';
+			printf("Received: \"%s\"\n", buffer);
+			guess = atoi(buffer);
+
+			// Depending on state...
+			if (state == idle)
+			{
+				// Make a new random number.
+				toGuess = rand() % 100;
+
+				// They're automatically the winner.
+				strcpy(outbuf, "You Won ?");
+				int sent = sendto(internetSocket, outbuf, strlen(outbuf), 0, (struct sockaddr *)&clientInternetAddress, clientInternetAddressLength);
+				if (sent == -1)
+					continue;
+				winningGuess = guess;
+				winningClientInternetAddress = clientInternetAddress;
+				winningClientInternetAddressLength = clientInternetAddressLength;
+
+				// Start the timer.
+				timeZero = clock();
+				timeout = 8.0;
+
+				// Switch state.
+				state = running;
+			}
+			else if(state == running)
+			{
+				// Reset and halve the timer.
+				timeZero = clock();
+				timeout /= 2.0;
+
+				// Is the guess closer?
+				if(abs(guess - toGuess) < abs(winningGuess - toGuess))
+				{
+					strcpy(outbuf, "You Won ?");
+					int sent = sendto(internetSocket, outbuf, strlen(outbuf), 0, (struct sockaddr *)&clientInternetAddress, clientInternetAddressLength);
+					if (sent == -1)
+						continue;
+					winningGuess = guess;
 					winningClientInternetAddress = clientInternetAddress;
 					winningClientInternetAddressLength = clientInternetAddressLength;
-					winningGuess = atoi( buffer );
-					state = running;
 				}
-				break;
-			case running:
-				printf( "running\n" );
-				setTimeOut( timeOutInMilis, internetSocket );
-				//receive data
-				numberOfBytesReceived = recvfrom( internetSocket, buffer, sizeof( buffer ) - 1, 0, ( struct sockaddr * )&clientInternetAddress, &clientInternetAddressLength );
-				if( numberOfBytesReceived == -1 ) {
-					state = timeout;
-					timeZero = clock();
-					perror( "recvfrom" );
-				} else {
-					buffer[numberOfBytesReceived] = '\0';
-					printf( "Received : \"%s\"\n", buffer );
-					guess = atoi( buffer );
-					if( abs( numberToGuess - guess ) < abs( numberToGuess - winningGuess ) ) {
-						numberOfBytesSend = sendto( internetSocket, "you won?", 8, 0, ( struct sockaddr * )&clientInternetAddress, clientInternetAddressLength );
-						if( numberOfBytesSend == -1 ) {
-							perror( "sendto" );
-						}
-						winningClientInternetAddress = clientInternetAddress;
-						winningClientInternetAddressLength = clientInternetAddressLength;
-						winningGuess = guess;
-					}
-					timeOutInMilis /= 2;
-				}
+			}
+			else if(state == overtime)
+			{
+				// Doesn't matter what they said, it's a loss.
+				strcpy(outbuf, "You Lost !");
+				int sent = sendto(internetSocket, outbuf, strlen(outbuf), 0, (struct sockaddr *)&clientInternetAddress, clientInternetAddressLength);
+				if (sent == -1)
+					continue;
+			}
+		}
 
-				break;
-			case timeout:
-				printf( "timeout\n" );
-				setTimeOut( 10, internetSocket );
-				numberOfBytesReceived = recvfrom( internetSocket, buffer, sizeof( buffer ) - 1, 0, ( struct sockaddr * )&clientInternetAddress, &clientInternetAddressLength );
-				if( numberOfBytesReceived == -1 ) {
-					
-				} else {
-					buffer[numberOfBytesReceived] = '\0';
-					printf( "Received : \"%s\"\n", buffer );
-					numberOfBytesSend = sendto( internetSocket, "you lost!", 9, 0, ( struct sockaddr * )&clientInternetAddress, clientInternetAddressLength );
-					if( numberOfBytesSend == -1 ) {
-						perror( "sendto" );
-					}
-					if( ( struct sockaddr * )&clientInternetAddress == ( struct sockaddr * )&winningClientInternetAddress ) {
-						noWinner = 1;
-					}
-				}
-
-				if( (clock() - timeZero ) / CLOCKS_PER_SEC > 16 ) {
-					setTimeOut( 0, internetSocket );
-					if( noWinner == 0 ) {
-						numberOfBytesSend = sendto( internetSocket, "you won!", 8, 0, ( struct sockaddr * )&winningClientInternetAddress, winningClientInternetAddressLength );
-						if( numberOfBytesSend == -1 ) {
-							perror( "sendto" );
-						}
-					}
-					winningGuess = 0;
-					noWinner = 0;
-					guess = 0;
-					timeOutInMilis = 8000;
-					state = idle;
-				}
-				break;
+		clock_t now = clock();
+		if((now - timeZero) / CLOCKS_PER_SEC > timeout && state != idle)
+		{
+			if(state == overtime)
+			{
+				state = idle;
+			}
+			else if(state == running)
+			{
+				memset(outbuf, 0, sizeof(outbuf));
+				strcpy(outbuf, "You Won !");
+				numberOfBytesSend = sendto(internetSocket, outbuf, strlen(outbuf), 0, (struct sockaddr *)&winningClientInternetAddress, winningClientInternetAddressLength);
+				state = overtime;
+				timeout = 16.0;
+				timeZero = clock();
+			}
 		}
 	}
 }
 
-//standart cleanup function to close the internet socket provided
-void cleanup( int internetSocket ) {
-	close( internetSocket );
+// standart cleanup function to close the internet socket provided
+void cleanup(int internetSocket)
+{
+	close(internetSocket);
+}
+
+int available(int sock)
+{
+	int timeout = 0;
+	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof timeout);
+	struct timeval tv;
+	tv.tv_sec = 0;
+	tv.tv_usec = 0;
+	fd_set readfds;
+	FD_ZERO(&readfds);
+	FD_SET(sock, &readfds);
+	int available = select(sock + 1, &readfds, NULL, NULL, &tv);
+	return available == 1;
 }
